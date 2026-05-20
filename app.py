@@ -4,25 +4,33 @@
 # ============================================================
 
 import os
+import shutil
 
 from langchain_groq import ChatGroq
 from langchain.chains import RetrievalQA
+
 from langchain_community.document_loaders import PyPDFLoader
+
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+
+from langchain_community.embeddings.huggingface import (
+    HuggingFaceEmbeddings
+)
+
 from langchain.prompts import PromptTemplate
 
 # ============================================================
 # STEP 1: SET GROQ API KEY
 # ============================================================
 
-GROQ_API_KEY = "gsk_6TkIhMnwZJpJFU0uqiG5WGdyb3FYfGgLojgSjOzgn8rmjGxiEvdAY"
+GROQ_API_KEY = "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"
 
 os.environ["GROQ_API_KEY"] = GROQ_API_KEY
 
 # ============================================================
-# STEP 2: GET PDF FILE PATH FROM USER
+# STEP 2: PDF FILE SELECTION
 # ============================================================
 
 print("\n======================================")
@@ -31,103 +39,170 @@ print("======================================")
 
 pdf_path = input("\nEnter PDF File Path: ")
 
-# Check if file exists
+# ============================================================
+# VALIDATE FILE
+# ============================================================
+
 if not os.path.exists(pdf_path):
 
-    print("\nError: PDF file not found.")
+    print("\n❌ Error: PDF file not found.")
     exit()
+
+if not pdf_path.endswith(".pdf"):
+
+    print("\n❌ Error: Please provide a PDF file.")
+    exit()
+
+print("\n✅ PDF File Found Successfully!")
 
 # ============================================================
 # STEP 3: LOAD PDF DOCUMENT
 # ============================================================
 
-print("\nLoading PDF Document...")
+try:
 
-loader = PyPDFLoader(pdf_path)
+    print("\n📄 Loading PDF Document...")
 
-documents = loader.load()
+    loader = PyPDFLoader(pdf_path)
 
-print(f"\nTotal Pages Loaded: {len(documents)}")
+    documents = loader.load()
+
+    print(f"\n✅ Total Pages Loaded: {len(documents)}")
+
+except Exception as e:
+
+    print("\n❌ Error Loading PDF:")
+    print(str(e))
+    exit()
 
 # ============================================================
 # STEP 4: SPLIT DOCUMENT INTO CHUNKS
 # ============================================================
 
-print("\nSplitting Document into Chunks...")
+try:
 
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,
-    chunk_overlap=200
-)
+    print("\n✂️ Splitting Document into Chunks...")
 
-docs = text_splitter.split_documents(documents)
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=200
+    )
 
-print(f"\nTotal Chunks Created: {len(docs)}")
+    docs = text_splitter.split_documents(documents)
+
+    print(f"\n✅ Total Chunks Created: {len(docs)}")
+
+except Exception as e:
+
+    print("\n❌ Error While Splitting Text:")
+    print(str(e))
+    exit()
 
 # ============================================================
 # STEP 5: LOAD EMBEDDING MODEL
 # ============================================================
 
-print("\nLoading Embedding Model...")
+try:
 
-embedding_model = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
-)
+    print("\n🧠 Loading Embedding Model...")
 
-print("\nEmbedding Model Loaded Successfully!")
+    embedding_model = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
 
-# ============================================================
-# STEP 6: CREATE VECTOR DATABASE
-# ============================================================
+    print("\n✅ Embedding Model Loaded Successfully!")
 
-print("\nCreating Vector Database...")
+except Exception as e:
 
-vectorstore = Chroma.from_documents(
-    documents=docs,
-    embedding=embedding_model,
-    persist_directory="./chroma_db"
-)
-
-print("\nVector Database Created Successfully!")
+    print("\n❌ Error Loading Embedding Model:")
+    print(str(e))
+    exit()
 
 # ============================================================
-# STEP 7: CREATE RETRIEVER
+# STEP 6: REMOVE OLD VECTOR DATABASE
 # ============================================================
 
-retriever = vectorstore.as_retriever(
-    search_kwargs={"k": 3}
-)
+if os.path.exists("./chroma_db"):
 
-print("\nRetriever Created Successfully!")
+    shutil.rmtree("./chroma_db")
 
 # ============================================================
-# STEP 8: LOAD GROQ LLM MODEL
+# STEP 7: CREATE VECTOR DATABASE
 # ============================================================
 
-print("\nLoading GROQ LLM Model...")
+try:
 
-llm = ChatGroq(
-    model_name="llama-3.1-8b-instant",
-    temperature=0
-)
+    print("\n🗂️ Creating Vector Database...")
 
-print("\nLLM Loaded Successfully!")
+    vectorstore = Chroma.from_documents(
+        documents=docs,
+        embedding=embedding_model,
+        persist_directory="./chroma_db"
+    )
+
+    print("\n✅ Vector Database Created Successfully!")
+
+except Exception as e:
+
+    print("\n❌ Error Creating Vector Database:")
+    print(str(e))
+    exit()
 
 # ============================================================
-# STEP 9: CREATE CUSTOM PROMPT
+# STEP 8: CREATE RETRIEVER
+# ============================================================
+
+try:
+
+    retriever = vectorstore.as_retriever(
+        search_kwargs={"k": 3}
+    )
+
+    print("\n✅ Retriever Created Successfully!")
+
+except Exception as e:
+
+    print("\n❌ Error Creating Retriever:")
+    print(str(e))
+    exit()
+
+# ============================================================
+# STEP 9: LOAD GROQ LLM
+# ============================================================
+
+try:
+
+    print("\n🤖 Loading GROQ LLM Model...")
+
+    llm = ChatGroq(
+        model_name="llama-3.1-8b-instant",
+        temperature=0
+    )
+
+    print("\n✅ GROQ LLM Loaded Successfully!")
+
+except Exception as e:
+
+    print("\n❌ Error Loading GROQ Model:")
+    print(str(e))
+    exit()
+
+# ============================================================
+# STEP 10: CREATE CUSTOM PROMPT
 # ============================================================
 
 custom_prompt = PromptTemplate(
     template="""
-Use the following context to answer the user's question.
+Use the following pieces of context to answer the user's question.
 
-If you don't know the answer, say:
-"I don't know based on the provided document."
-
-Do not make up answers.
-
-Always end the answer with:
-"Thanks for asking!"
+Rules:
+1. Answer only from the provided context
+2. Do not hallucinate
+3. If answer is unavailable, say:
+   "I don't know based on the provided document."
+4. Keep answers clear and professional
+5. Always end with:
+   "Thanks for asking!"
 
 Context:
 {context}
@@ -141,24 +216,32 @@ Helpful Answer:
 )
 
 # ============================================================
-# STEP 10: CREATE RAG QA CHAIN
+# STEP 11: CREATE RAG QA CHAIN
 # ============================================================
 
-print("\nCreating Retrieval QA Chain...")
+try:
 
-qa_chain = RetrievalQA.from_chain_type(
-    llm=llm,
-    retriever=retriever,
-    chain_type="stuff",
-    chain_type_kwargs={
-        "prompt": custom_prompt
-    }
-)
+    print("\n🔗 Creating Retrieval QA Chain...")
 
-print("\nRAG QA Chain Created Successfully!")
+    qa_chain = RetrievalQA.from_chain_type(
+        llm=llm,
+        retriever=retriever,
+        chain_type="stuff",
+        chain_type_kwargs={
+            "prompt": custom_prompt
+        }
+    )
+
+    print("\n✅ RAG QA Chain Created Successfully!")
+
+except Exception as e:
+
+    print("\n❌ Error Creating QA Chain:")
+    print(str(e))
+    exit()
 
 # ============================================================
-# STEP 11: START CHATBOT
+# STEP 12: START CHATBOT
 # ============================================================
 
 print("\n======================================")
@@ -171,20 +254,27 @@ while True:
 
     if question.lower() == "exit":
 
-        print("\nExiting RAG Chatbot...")
+        print("\n👋 Exiting RAG Chatbot...")
         break
+
+    if question.strip() == "":
+
+        print("\n⚠️ Please enter a valid question.")
+        continue
 
     try:
 
-        response = qa_chain.run(question)
+        response = qa_chain.invoke({
+            "query": question
+        })
 
         print("\n======================================")
         print("ANSWER")
         print("======================================\n")
 
-        print(response)
+        print(response["result"])
 
     except Exception as e:
 
-        print("\nError Occurred:")
+        print("\n❌ Error Occurred:")
         print(str(e))
