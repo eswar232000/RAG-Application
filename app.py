@@ -17,7 +17,7 @@ from langchain.prompts import PromptTemplate
 # STEP 1: SET GROQ API KEY
 # ============================================================
 
-GROQ_API_KEY = "YOUR_GROQ_API_KEY"
+GROQ_API_KEY = "gsk_6TkIhMnwZJpJFU0uqiG5WGdyb3FYfGgLojgSjOzgn8rmjGxiEvdAY"
 
 os.environ["GROQ_API_KEY"] = GROQ_API_KEY
 
